@@ -6,11 +6,11 @@ from brian2 import Hz
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
-
-# ensure your compilers are set
-os.environ['CC']  = '/opt/homebrew/bin/gcc-14'
-os.environ['CXX'] = '/opt/homebrew/bin/g++-14'
+# import os
+#
+# # ensure your compilers are set
+# os.environ['CC']  = '/opt/homebrew/bin/gcc-14'
+# os.environ['CXX'] = '/opt/homebrew/bin/g++-14'
 
 # configuration
 config = {
