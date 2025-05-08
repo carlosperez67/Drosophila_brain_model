@@ -1,7 +1,7 @@
 name: brian2
 channels:
-  - defaults
   - conda-forge
+  - defaults
 dependencies:
   - python=3.10
   - brian2=2.5.1
