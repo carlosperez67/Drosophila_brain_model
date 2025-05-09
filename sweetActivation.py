@@ -88,8 +88,7 @@ df_std.fillna(0).to_csv(root / 'all_rates_std.csv')
 # 4) plot MN9 responses
 mn9_ids = [
     720575940660219265,
-    720575940618238523,
-    720575940639332736  # add your third MN9 ID here
+    720575940618238523
 ]
 
 # subset to MN9 rows
