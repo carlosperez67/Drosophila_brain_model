@@ -4,6 +4,7 @@ Created on Mon Nov  6 22:20:26 2023
 
 @author: lijin
 """
+import pandas as pd
 
 from model import run_exp
 from model import default_params as params
