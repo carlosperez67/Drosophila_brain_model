@@ -20,7 +20,7 @@ Example:
 import argparse
 from collections import defaultdict
 from pathlib import Path
-import os
+# import os
 
 import pandas as pd
 from brian2 import Hz
@@ -32,8 +32,8 @@ import utils as utl
 # ---------------------------------------------------------------------------
 # paths and environment
 # ---------------------------------------------------------------------------
-os.environ["CC"] = "/opt/homebrew/bin/gcc-14"
-os.environ["CXX"] = "/opt/homebrew/bin/g++-14"
+# os.environ["CC"] = "/opt/homebrew/bin/gcc-14"
+# os.environ["CXX"] = "/opt/homebrew/bin/g++-14"
 
 CONFIG = {
     "path_comp": "./Completeness_783.csv",
