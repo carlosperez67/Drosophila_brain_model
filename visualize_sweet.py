@@ -42,7 +42,7 @@ ROOT_DIR = Path("./sweet_results/GRN")
 DIR_PLOTS = ROOT_DIR / "plots"
 DIR_PLOTS.mkdir(parents=True, exist_ok=True)
 DIR_CONTROLS = ROOT_DIR / "controls"
-DIR_EXPER = ROOT_DIR / "experimental_old"
+DIR_EXPER = ROOT_DIR / "experiments"
 PATH_SWEET = Path("Data/sweet.csv")
 
 MN9_LOOKUP: Dict[str, int] = {
@@ -56,8 +56,8 @@ MN9_LOOKUP: Dict[str, int] = {
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Plot MN9 firing rates across experiments")
-    p.add_argument("--mn9", default="both", choices=["1", "2", "both"],
-                   help="MN9 neuron to plot (default: both)")
+    p.add_argument("--mn9", default="2", choices=["1", "2", "both"],
+                   help="MN9 neuron to plot (default: 2)")
     p.add_argument("--subset", default="both", choices=["controls", "experiments", "both"],
                    help="Plot controls, experiments, or both (default: both)")
     p.add_argument("--save", action="store_true", help="Save plots as PNG files")
@@ -141,7 +141,7 @@ def main() -> None:
         out_path = DIR_PLOTS / out_name
         plt.savefig(out_path, dpi=300)
         print(f"Plot saved to {out_path}")
-    plt.show()
+    # plt.show()
 
 if __name__ == "__main__":
     main()

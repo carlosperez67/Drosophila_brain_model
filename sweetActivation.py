@@ -100,7 +100,7 @@ def main() -> None:
                 neu_exc2=[],
                 params=params,
                 **CONFIG,
-                force_overwrite=True,
+                force_overwrite=False,
             )
             exp_names.append(exp_name)
             file_paths.append(CONFIG["path_res"] / f"{exp_name}.parquet")
