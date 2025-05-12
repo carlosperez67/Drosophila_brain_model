@@ -130,6 +130,17 @@ def main() -> None:
             label = condition if len(mn9_ids) == 1 else f"{condition} (MN9 {mn})"
             plt.plot(freqs_sorted, y_vals, marker="o", label=label)
 
+    # plt.figure(figsize=(10, 7))
+    # for condition, freq_dict in sorted(cond_points.items()):
+    #     freqs_sorted = sorted(freq_dict.keys())
+    #     for mn in mn9_ids:
+    #         y_vals = [freq_dict[f][mn] for f in freqs_sorted]
+    #         label = condition if len(mn9_ids) == 1 else f"{condition} (MN9 {mn})"
+    #         plt.plot(freqs_sorted, y_vals, marker="o", label=label)
+    #         # Annotate each point with its y-value
+    #         for x, y in zip(freqs_sorted, y_vals):
+    #             plt.text(x, y + 0.5, f"{y:.1f}", ha="center", va="bottom", fontsize=7)
+
     plt.xlabel("Stimulus frequency (Hz)")
     plt.ylabel("Firing rate (Hz)")
     plt.title("MN9 firing rate vs stimulus frequency")

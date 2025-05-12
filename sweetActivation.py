@@ -49,7 +49,7 @@ DIR_CONTROLS.mkdir(parents=True, exist_ok=True)
 DIR_EXPERIMENTS.mkdir(parents=True, exist_ok=True)
 
 # frequency sweeps
-FREQS_SUGAR = [20, 25, 30]              # Hz for sweet neurons
+FREQS_SUGAR = [ 40 ]              # Hz for sweet neurons
 FREQS_ORN   = list(range(20, 201, 10))  # Hz for ORNs
 
 # ---------------------------------------------------------------------------
