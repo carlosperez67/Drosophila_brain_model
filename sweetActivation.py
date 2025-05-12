@@ -1,111 +1,138 @@
+#!/usr/bin/env python3
+"""
+Run GRN frequency sweep experiments (ASCII only).
+
+This script performs two sets of simulations:
+
+1. Sugar-only controls           : sweet neurons excited at 20, 25, 30 Hz.
+2. Sugar + ORN combinations      : the same sweet neurons plus each ORN
+   cell-type population.  For every sugar rate above, ORNs are excited at
+   rates from 20 to 200 Hz in 10 Hz steps.
+
+Sweet neurons use the Poisson rate stored in ``params['r_poi']``.
+ORN neurons use the second Poisson rate stored in ``params['r_poi2']``.
+
+Plotting code has been removed.  Use the separate script
+``plot_parquet_results.py`` to visualise the results once the simulations
+have finished.
+"""
+
 from collections import defaultdict
+from pathlib import Path
+
+from brian2 import Hz
+import pandas as pd
+
 from model import run_exp
 from model import default_params as params
 import utils as utl
-from brian2 import Hz
-from pathlib import Path
-import pandas as pd
-import matplotlib.pyplot as plt
-# import os
-#
-# # ensure your compilers are set
-# os.environ['CC']  = '/opt/homebrew/bin/gcc-14'
-# os.environ['CXX'] = '/opt/homebrew/bin/g++-14'
+import os
 
-# configuration
-config = {
-    'path_comp': './Completeness_783.csv',
-    'path_con':  './Connectivity_783.parquet',
-    'n_proc':   -1,
-    'path_res': Path('./sweet/GRN')
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+os.environ['CC']  = '/opt/homebrew/bin/gcc-14'
+os.environ['CXX'] = '/opt/homebrew/bin/g++-14'
+
+CONFIG = {
+    "path_comp": "./Completeness_783.csv",
+    "path_con" : "./Connectivity_783.parquet",
+    "n_proc"   : -1,
+    "path_res" : Path("./sweet_results/GRN"),
 }
 
-# load sugar GRN IDs
-sweet_df   = pd.read_csv('Data/sweet.csv')
-neu_sugar  = [int(i) for i in sweet_df['root_id']]
+(CONFIG["path_res"] / "controls").mkdir(parents=True, exist_ok=True)
+(CONFIG["path_res"] / "experiments").mkdir(parents=True, exist_ok=True)
 
-# load ORN cell types → dict: {cell_type: [root_id,…]}
-df_orn = pd.read_csv('Data/filtered_orn.csv')
+
+# Frequency sweeps
+FREQS_SUGAR = [20, 25, 30]                  # Hz for sweet neurons
+FREQS_ORN   = list(range(20, 201, 10))      # Hz for ORNs
+
+# ---------------------------------------------------------------------------
+# Load neuron populations
+# ---------------------------------------------------------------------------
+# Sweet GRN IDs
+sweet_df = pd.read_csv("Data/sweet.csv")
+neu_sugar = [int(i) for i in sweet_df["root_id"]]
+
+# ORN IDs grouped by primary cell type
+orn_df = pd.read_csv("Data/filtered_orn.csv")
 cell_type_dict = defaultdict(list)
-for _, row in df_orn.iterrows():
-    cell_type_dict[row['primary_type']].append(int(row['root_id']))
+for _, row in orn_df.iterrows():
+    cell_type_dict[row["primary_type"].strip()].append(int(row["root_id"]))
 
-# frequency sweep
-freqs = list(range(20, 30, 2)) * Hz
-
-# experiment names & file‐paths
-exp_names = []
+# ---------------------------------------------------------------------------
+# Run experiments
+# ---------------------------------------------------------------------------
+exp_names  = []
 file_paths = []
 
-# 1) sugar‐only controls
-for f in freqs:
-    params['r_poi'] = f
-    name = f'sugar_only_{int(f/Hz)}Hz'
+# 1) Sugar-only controls -----------------------------------------
+for sugar_rate in FREQS_SUGAR:
+    params["r_poi"]  = sugar_rate * Hz   # sweet neuron rate
+    params["r_poi2"] = 0 * Hz            # ORNs inactive
+
+    # exp_name = f"sugar_only_{sugar_rate}Hz"
+    exp_name = f"controls/sugar_only_{sugar_rate}Hz"
+
     run_exp(
-        exp_name=name,
+        exp_name=exp_name,
         neu_exc=neu_sugar,
+        neu_exc2=[],
         params=params,
-        **config,
-        force_overwrite=True
+        **CONFIG,
+        force_overwrite=False,
     )
-    exp_names.append(name)
-    file_paths.append(f'{config["path_res"]}/{name}.parquet')
 
-# 2) sugar + each ORN cell type
-for cell_type, orn_ids in cell_type_dict.items():
-    for f in freqs:
-        params['r_poi'] = f
-        # combine sugar + this ORN population
-        neu_combo = neu_sugar + orn_ids
-        name = f'sugar_plus_{cell_type}_{int(f/Hz)}Hz'
-        run_exp(
-            exp_name=name,
-            neu_exc=neu_combo,
-            params=params,
-            **config,
-            force_overwrite=True
-        )
-        exp_names.append(name)
-        file_paths.append(f'{config["path_res"]}/{name}.parquet')
+    exp_names.append(exp_name)
+    file_paths.append(f"{CONFIG['path_res']}/controls/{exp_name}.parquet")
 
-# 3) load & compute rates
-flyid2name = {nid: f'sugar_{i+1}' for i, nid in enumerate(neu_sugar)}
-# (you may also want to map ORN IDs to labels if desired)
+# 2) Sugar + ORN combinations ------------------------------------
+for sugar_rate in FREQS_SUGAR:
+    params["r_poi"] = sugar_rate * Hz  # sweet neuron rate
 
-df_spike     = utl.load_exps(file_paths)
+    for cell_type, orn_ids in cell_type_dict.items():
+        for orn_rate in FREQS_ORN:
+            params["r_poi2"] = orn_rate * Hz  # ORN rate
+
+            # exp_name = (
+            #     f"sugar{str(sugar_rate)}Hz_"
+            #     f"plus_{cell_type}_{orn_rate}Hz"
+            # )
+            exp_name = f"experiments/sugar{str(sugar_rate)}Hz_plus_{cell_type}_{orn_rate}Hz"
+
+            run_exp(
+                exp_name=exp_name,
+                neu_exc=neu_sugar,
+                neu_exc2=orn_ids,
+                params=params,
+                **CONFIG,
+                force_overwrite=False,
+            )
+
+            exp_names.append(exp_name)
+            file_paths.append(f"{CONFIG['path_res']}/experiments/{exp_name}.parquet")
+
+print(f"Finished running {len(exp_names)} experiments.")
+
+# ---------------------------------------------------------------------------
+# Compute and store firing-rate matrices
+# ---------------------------------------------------------------------------
+flyid2name = {nid: f"sugar_{idx + 1}" for idx, nid in enumerate(neu_sugar)}
+
+print("Loading spike data and computing firing rates...")
+df_spike = utl.load_exps(file_paths)
+
 df_rate, df_std = utl.get_rate(
     df_spike,
-    t_run=params['t_run'],
-    n_run=params['n_run'],
-    flyid2name=flyid2name
+    t_run=params["t_run"],
+    n_run=params["n_run"],
+    flyid2name=flyid2name,
 )
 
-# save full matrices
-root = config['path_res'].parent
-df_rate.fillna(0).to_csv(root / 'all_rates.csv')
-df_std.fillna(0).to_csv(root / 'all_rates_std.csv')
+root_out = CONFIG["path_res"].parent
+(df_rate.fillna(0)).to_csv(root_out / "all_rates.csv")
+(df_std.fillna(0)).to_csv(root_out / "all_rates_std.csv")
 
-# 4) plot MN9 responses
-mn9_ids = [
-    720575940660219265,
-    720575940618238523
-]
-
-# subset to MN9 rows
-df_plot = df_rate.loc[mn9_ids]
-
-plt.figure(figsize=(8,6))
-for mn in mn9_ids:
-    # for each MN9, plot across all experiments
-    plt.plot(
-        [int(name.split('_')[-1].replace('Hz','')) for name in df_plot.columns],
-        df_plot.loc[mn],
-        marker='o',
-        label=f'MN9 {mn}'
-    )
-plt.xlabel('Poisson rate (Hz)')
-plt.ylabel('Firing rate (Hz)')
-plt.title('MN9 activation vs. stimulus frequency')
-plt.legend()
-plt.tight_layout()
-plt.show()
+print(f"Saved rate matrices to {root_out.resolve()}")

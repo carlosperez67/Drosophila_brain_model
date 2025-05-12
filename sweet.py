@@ -18,7 +18,7 @@ config = {
     'path_comp': './Completeness_783.csv',
     'path_con':  './Connectivity_783.parquet',
     'n_proc':   -1,
-    'path_res': Path('./sweet/GRN')
+    'path_res': Path('sweet_results/GRN')
 }
 
 # load sugar GRN IDs
