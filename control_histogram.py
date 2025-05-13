@@ -66,8 +66,8 @@ def main():
     plot_dir.mkdir(parents=True, exist_ok=True)
 
     # set compilers
-    os.environ["CC"] = "/opt/homebrew/bin/gcc-14"
-    os.environ["CXX"] = "/opt/homebrew/bin/g++-14"
+    # os.environ["CC"] = "/opt/homebrew/bin/gcc-14"
+    # os.environ["CXX"] = "/opt/homebrew/bin/g++-14"
 
     # load sugar neuron IDs
     sweet_df = pd.read_csv("Data/sweet.csv")
