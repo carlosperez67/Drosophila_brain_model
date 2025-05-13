@@ -56,8 +56,8 @@ def main():
     max_existing = max(existing_runs) if existing_runs else 0
 
     # 3) set up parameters
-    os.environ["CC"] = "/opt/homebrew/bin/gcc-14"
-    os.environ["CXX"] = "/opt/homebrew/bin/g++-14"
+    # os.environ["CC"] = "/opt/homebrew/bin/gcc-14"
+    # os.environ["CXX"] = "/opt/homebrew/bin/g++-14"
     sweet_df = pd.read_csv("Data/sweet.csv")
     neu_sugar = [int(i) for i in sweet_df["root_id"]]
     params["r_poi"]  = args.hz * Hz
@@ -66,7 +66,7 @@ def main():
     # 4) run the new experiments, numbering from max_existing + 1
     for offset in range(1, n_new + 1):
         run_idx   = max_existing + offset
-        exp_name  = f"controls_hist/sugar_only_{hz_int}Hz_run_{run_idx}"
+        exp_name  = f"control_trials/sugar_only_{hz_int}Hz_run_{run_idx}"
         run_exp(
             exp_name=exp_name,
             neu_exc=neu_sugar,
