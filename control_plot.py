@@ -43,7 +43,7 @@ def main():
     args = parse_args()
     hz_int = int(args.hz)
 
-    base = Path("./sweet_results/GRN/controls_hist")
+    base = Path("./sweet_results/GRN/control_trials")
     pattern = f"sugar_only_{hz_int}Hz_run_*.parquet"
     paths = sorted(base.glob(pattern))
     if not paths:
