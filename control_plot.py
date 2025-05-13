@@ -1,7 +1,8 @@
 # control_plot.py
 #!/usr/bin/env python3
 """
-Load saved MN9 firing rates and plot histogram.
+Scan the controls_hist directory for any completed runs at a given Hz,
+compute MN9 firing rates from the parquet files, and plot a histogram.
 """
 
 import argparse
@@ -10,6 +11,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
+import utils as utl
+from model import default_params as params
 
 MN9_LOOKUP = {
     "1": 720575940660219265,
@@ -19,13 +22,13 @@ MN9_LOOKUP = {
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Plot MN9 firing-rate histogram from CSV."
+        description="Plot MN9 histogram from existing parquet runs."
     )
     parser.add_argument(
-        "--csv",
-        type=Path,
+        "--hz",
+        type=float,
         required=True,
-        help="Path to CSV file with MN9 firing rates.",
+        help="Activation frequency that identifies the runs (in Hz).",
     )
     parser.add_argument(
         "--mn9",
@@ -38,47 +41,56 @@ def parse_args():
 
 def main():
     args = parse_args()
-    df_rate = pd.read_csv(args.csv, index_col=0)
+    hz_int = int(args.hz)
 
-    # select MN9 IDs
+    base = Path("./sweet_results/GRN/controls_hist")
+    pattern = f"sugar_only_{hz_int}Hz_run_*.parquet"
+    paths = sorted(base.glob(pattern))
+    if not paths:
+        raise FileNotFoundError(f"No parquet files matching {pattern}")
+
+    # load spikes and compute rates
+    df_spike = utl.load_exps([str(p) for p in paths])
+    df_rate, _ = utl.get_rate(
+        df_spike,
+        t_run=params["t_run"],
+        n_run=params["n_run"],
+        flyid2name={},
+    )
+    df_rate = df_rate.select_dtypes(include="number")
+
+    # select target MN9(s)
     if args.mn9 == "both":
-        mn9_ids = MN9_LOOKUP.values()
+        target_ids = MN9_LOOKUP.values()
     else:
-        mn9_ids = [MN9_LOOKUP[args.mn9]]
-
-    # prepare plot directory
-    plot_dir = Path("control_plots")
-    plot_dir.mkdir(parents=True, exist_ok=True)
+        target_ids = [MN9_LOOKUP[args.mn9]]
 
     # plot
-    plt.figure()
-    for mn9_id in mn9_ids:
-        try:
-            rates = df_rate.loc[mn9_id]
-        except KeyError:
-            raise KeyError(f"MN9 ID {mn9_id} not found in {args.csv}")
-        plt.hist(
-            rates,
-            bins="auto",
-            alpha=0.5 if len(mn9_ids) == 2 else 1.0,
-            edgecolor="black",
-            label=f"MN9 {mn9_id}",
-        )
-        mean = rates.mean()
-        median = rates.median()
-        plt.axvline(mean, linestyle="--", linewidth=1.5,
-                    label=f"Mean: {mean:.2f} Hz")
-        plt.axvline(median, linestyle="-", linewidth=1.5,
-                    label=f"Median: {median:.2f} Hz")
+    out_dir = Path("control_plots")
+    out_dir.mkdir(exist_ok=True)
 
-    hz_str, runs_str = args.csv.stem.split("_")[2:4]
-    plt.title(f"MN9 Firing Rates @ {hz_str} Hz over {runs_str}")
+    plt.figure()
+    for mid in target_ids:
+        if mid not in df_rate.index:
+            raise KeyError(f"MN9 ID {mid} not in results")
+        rates = df_rate.loc[mid]
+        plt.hist(rates, bins="auto",
+                 alpha=0.5 if len(target_ids) == 2 else 1.0,
+                 edgecolor="black",
+                 label=f"MN9 {mid}")
+        mu, med = rates.mean(), rates.median()
+        plt.axvline(mu, linestyle="--", linewidth=1.5,
+                    label=f"Mean {mu:.2f} Hz")
+        plt.axvline(med, linestyle="-", linewidth=1.5,
+                    label=f"Median {med:.2f} Hz")
+
+    plt.title(f"MN9 Firing Rates @ {hz_int} Hz over {len(paths)} runs")
     plt.xlabel("Firing Rate (Hz)")
     plt.ylabel("Count")
     plt.legend(fontsize="small")
     plt.tight_layout()
 
-    out_file = plot_dir / f"mn9_hist_{hz_str}_{runs_str}_mn9{args.mn9}.png"
+    out_file = out_dir / f"mn9_hist_{hz_int}Hz_{len(paths)}runs_mn9_{args.mn9}.png"
     plt.savefig(out_file, dpi=300)
     plt.close()
 
