@@ -1,4 +1,3 @@
-# control_plot.py
 #!/usr/bin/env python3
 """
 Scan the controls_hist directory for any completed runs at a given Hz,
@@ -74,15 +73,23 @@ def main():
         if mid not in df_rate.index:
             raise KeyError(f"MN9 ID {mid} not in results")
         rates = df_rate.loc[mid]
-        plt.hist(rates, bins="auto",
-                 alpha=0.5 if len(target_ids) == 2 else 1.0,
-                 edgecolor="black",
-                 label=f"MN9 {mid}")
-        mu, med = rates.mean(), rates.median()
-        plt.axvline(mu, linestyle="--", linewidth=1.5,
-                    label=f"Mean {mu:.2f} Hz")
-        plt.axvline(med, linestyle="-", linewidth=1.5,
-                    label=f"Median {med:.2f} Hz")
+        mu = rates.mean()
+        med = rates.median()
+        std = rates.std()
+
+        # plot histogram
+        plt.hist(
+            rates,
+            bins="auto",
+            alpha=0.5 if len(target_ids) == 2 else 1.0,
+            edgecolor="black",
+            label=f"MN9 {mid}"
+        )
+        # annotate mean, median, and standard deviation
+        plt.axvline(mu, linestyle="--", linewidth=1.5, label=f"Mean {mu:.2f} Hz")
+        plt.axvline(med, linestyle="-", linewidth=1.5, label=f"Median {med:.2f} Hz")
+        plt.axvline(mu + std, linestyle=":", linewidth=1.5, label=f"Mean +1σ {mu+std:.2f} Hz")
+        plt.axvline(mu - std, linestyle=":", linewidth=1.5, label=f"Mean -1σ {mu-std:.2f} Hz")
 
     plt.title(f"MN9 Firing Rates @ {hz_int} Hz over {len(paths)} runs")
     plt.xlabel("Firing Rate (Hz)")
