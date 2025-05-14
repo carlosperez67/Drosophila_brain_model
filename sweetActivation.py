@@ -13,14 +13,15 @@ Choose what to run with the --subset flag:
     --subset experiments   # run experiments only
     --subset both          # run both (default)
 
+Additionally, you may specify the sugar and ORN frequencies via command-line parameters.
+
 Example:
-    python run_frequency_sweeps.py --subset controls
+    python run_frequency_sweeps.py --subset controls --sugar-hz 20 40 --orn-hz 50 100 150
 """
 
 import argparse
 from collections import defaultdict
 from pathlib import Path
-# import os
 
 import pandas as pd
 from brian2 import Hz
@@ -38,22 +39,14 @@ import utils as utl
 CONFIG = {
     "path_comp": "./Completeness_783.csv",
     "path_con" : "./Connectivity_783.parquet",
-    "n_proc"   : -1,
     "path_res" : Path("./sweet_results/GRN"),
+    "n_proc"   : -1,
 }
-
-# output sub‑directories
-DIR_CONTROLS    = CONFIG["path_res"] / "controls"
-DIR_EXPERIMENTS = CONFIG["path_res"] / "experiments"
-DIR_CONTROLS.mkdir(parents=True, exist_ok=True)
-DIR_EXPERIMENTS.mkdir(parents=True, exist_ok=True)
-
-# frequency sweeps
-FREQS_SUGAR = [ 40 ]              # Hz for sweet neurons
-FREQS_ORN   = list(range(20, 201, 10))  # Hz for ORNs
+DEFAULT_SUGAR_FREQS = [40]
+DEFAULT_ORN_FREQS   = list(range(20, 201, 10))
 
 # ---------------------------------------------------------------------------
-# helpers
+# argument parsing
 # ---------------------------------------------------------------------------
 
 def parse_args() -> argparse.Namespace:
@@ -64,6 +57,26 @@ def parse_args() -> argparse.Namespace:
         choices=["controls", "experiments", "both"],
         help="Which part of the sweep to run (default: both)",
     )
+    p.add_argument(
+        "--res-dir",
+        type=Path,
+        default=CONFIG["path_res"],
+        help="Root directory to save results (default: ./sweet_results/GRN)",
+    )
+    p.add_argument(
+        "--sugar-hz",
+        type=float,
+        nargs="+",
+        default=DEFAULT_SUGAR_FREQS,
+        help="List of sugar frequencies in Hz (default: [40])",
+    )
+    p.add_argument(
+        "--orn-hz",
+        type=float,
+        nargs="+",
+        default=DEFAULT_ORN_FREQS,
+        help="List of ORN frequencies in Hz (default: 20 to 200 step 10)",
+    )
     return p.parse_args()
 
 # ---------------------------------------------------------------------------
@@ -73,27 +86,35 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
+    # override save path
+    res_root: Path = args.res_dir
+    CONFIG["path_res"] = res_root
+
+    # prepare output subdirectories
+    dir_controls    = res_root / "controls"
+    dir_experiments = res_root / "experiments"
+    dir_controls.mkdir(parents=True, exist_ok=True)
+    dir_experiments.mkdir(parents=True, exist_ok=True)
+
     # load neuron populations
-    sweet_df = pd.read_csv("Data/sweet.csv")
+    sweet_df  = pd.read_csv("Data/sweet.csv")
     neu_sugar = [int(i) for i in sweet_df["root_id"]]
 
     orn_df = pd.read_csv("Data/filtered_orn.csv")
-    cell_type_dict = defaultdict(list)
+    cell_type_dict: dict[str, list[int]] = defaultdict(list)
     for _, row in orn_df.iterrows():
         cell_type_dict[row["primary_type"].strip()].append(int(row["root_id"]))
 
-    exp_names  = []
-    file_paths = []
+    exp_names: list[str]     = []
+    file_paths: list[Path]   = []
 
-    # ------------------------------------------------------------------
     # controls
-    # ------------------------------------------------------------------
     if args.subset in ("controls", "both"):
-        for sugar_rate in FREQS_SUGAR:
+        for sugar_rate in args.sugar_hz:
             params["r_poi"]  = sugar_rate * Hz
             params["r_poi2"] = 0 * Hz
 
-            exp_name = f"controls/sugar_only_{sugar_rate}Hz"
+            exp_name = f"controls/sugar_only_{int(sugar_rate)}Hz"
             run_exp(
                 exp_name=exp_name,
                 neu_exc=neu_sugar,
@@ -103,22 +124,19 @@ def main() -> None:
                 force_overwrite=False,
             )
             exp_names.append(exp_name)
-            file_paths.append(CONFIG["path_res"] / f"{exp_name}.parquet")
+            file_paths.append(res_root / f"{exp_name}.parquet")
 
-    # ------------------------------------------------------------------
     # experiments
-    # ------------------------------------------------------------------
     if args.subset in ("experiments", "both"):
-        for sugar_rate in FREQS_SUGAR:
+        for sugar_rate in args.sugar_hz:
             params["r_poi"] = sugar_rate * Hz
-
             for cell_type, orn_ids in cell_type_dict.items():
-                for orn_rate in FREQS_ORN:
+                for orn_rate in args.orn_hz:
                     params["r_poi2"] = orn_rate * Hz
 
                     exp_name = (
                         f"experiments/"
-                        f"sugar{str(sugar_rate)}Hz_plus_{cell_type}_{orn_rate}Hz"
+                        f"sugar{int(sugar_rate)}Hz_plus_{cell_type}_{int(orn_rate)}Hz"
                     )
                     run_exp(
                         exp_name=exp_name,
@@ -129,18 +147,16 @@ def main() -> None:
                         force_overwrite=False,
                     )
                     exp_names.append(exp_name)
-                    file_paths.append(CONFIG["path_res"] / f"{exp_name}.parquet")
+                    file_paths.append(res_root / f"{exp_name}.parquet")
 
     print(f"Finished running {len(exp_names)} experiments")
 
-    # ------------------------------------------------------------------
-    # rate matrices
-    # ------------------------------------------------------------------
     if not file_paths:
         print("No experiments selected; exiting without analysis")
         return
 
-    flyid2name = {nid: f"sugar_{idx + 1}" for idx, nid in enumerate(neu_sugar)}
+    # compute firing rates and stds
+    flyid2name = {nid: f"sugar_{idx+1}" for idx, nid in enumerate(neu_sugar)}
     print("Computing firing rates…")
     df_spike = utl.load_exps([str(p) for p in file_paths])
     df_rate, df_std = utl.get_rate(
@@ -150,10 +166,12 @@ def main() -> None:
         flyid2name=flyid2name,
     )
 
-    root_out = CONFIG["path_res"].parent
+    # save summary CSVs next to res_dir
+    root_out = res_root.parent
     df_rate.fillna(0).to_csv(root_out / "all_rates.csv")
     df_std.fillna(0).to_csv(root_out / "all_rates_std.csv")
     print(f"Saved rate matrices to {root_out.resolve()}")
+
 
 if __name__ == "__main__":
     main()
