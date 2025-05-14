@@ -15,7 +15,7 @@ from model import default_params as params
 
 MN9_LOOKUP = {
     "1": 720575940660219265,
-    "2": 720575940618238523,
+    "2": 720575940660618238523,
 }
 
 
@@ -34,6 +34,12 @@ def parse_args():
         choices=["1", "2", "both"],
         default="1",
         help="Which MN9 neuron to histogram (default: 1).",
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path("."),
+        help="Directory to save plots (default: current working directory).",
     )
     return parser.parse_args()
 
@@ -64,10 +70,11 @@ def main():
     else:
         target_ids = [MN9_LOOKUP[args.mn9]]
 
-    # plot
-    out_dir = Path("control_plots")
-    out_dir.mkdir(exist_ok=True)
+    # create output directory
+    out_dir = args.out_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
 
+    # plot
     plt.figure()
     for mid in target_ids:
         if mid not in df_rate.index:
@@ -83,7 +90,7 @@ def main():
             bins="auto",
             alpha=0.5 if len(target_ids) == 2 else 1.0,
             edgecolor="black",
-            label=f"MN9 {mid}"
+            label=f"MN9 {mid}",
         )
         # annotate mean, median, and standard deviation
         plt.axvline(mu, linestyle="--", linewidth=1.5, label=f"Mean {mu:.2f} Hz")
