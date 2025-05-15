@@ -85,6 +85,11 @@ def parse_args() -> argparse.Namespace:
         metavar="CELL_TYPE",
         help="List of ORN cell types to stimulate (default: all available)"
     )
+    p.add_argument(
+        "--reverse",
+        action="store_true",
+        help="Reverse computation order of ORN cell types"
+    )
     return p.parse_args()
 
 # ---------------------------------------------------------------------------
@@ -122,6 +127,9 @@ def main() -> None:
             raise ValueError(f"Unknown ORN types: {', '.join(missing)}")
         cell_type_dict = {ct: cell_type_dict[ct] for ct in requested}
 
+    if args.reverse:
+        cell_type_dict.rev
+
     exp_names: list[str]     = []
     file_paths: list[Path]   = []
 
@@ -147,7 +155,8 @@ def main() -> None:
     if args.subset in ("experiments", "both"):
         for sugar_rate in args.sugar_hz:
             params["r_poi"] = sugar_rate * Hz
-            for cell_type, orn_ids in list(cell_type_dict.items()):
+            cell_type_items = reversed(list(cell_type_dict.items())) if args.reverse else list(cell_type_dict.items())
+            for cell_type, orn_ids in cell_type_items:
                 for orn_rate in args.orn_hz:
                     params["r_poi2"] = orn_rate * Hz
 
