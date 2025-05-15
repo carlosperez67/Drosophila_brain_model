@@ -64,14 +64,6 @@ def parse_args() -> argparse.Namespace:
         help="Root directory to save results (default: ./sweet_results/GRN)",
     )
     p.add_argument(
-        "--orn-types",
-        type=str,
-        nargs="+",
-        default=None,
-        metavar="CELL_TYPE",
-        help="List of ORN cell types to stimulate (default: all available)"
-    )
-    p.add_argument(
         "--sugar-hz",
         type=float,
         nargs="+",
@@ -84,6 +76,14 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=DEFAULT_ORN_FREQS,
         help="List of ORN frequencies in Hz (default: 20 to 200 step 10)",
+    )
+    p.add_argument(
+        "--orn-types",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="CELL_TYPE",
+        help="List of ORN cell types to stimulate (default: all available)"
     )
     return p.parse_args()
 
