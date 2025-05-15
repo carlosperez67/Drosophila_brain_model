@@ -34,6 +34,13 @@ def parse_args():
         default=10,
         help="Number of new repetitions to perform.",
     )
+    parser.add_argument(
+        "--results-dir",
+        type=Path,
+        # default=Path("/project/def‑mdgordon‑ab/cperez67/RESULTS/control_trials"),
+        default=Path("./sweet_results/GRN/controls_hist"),
+        help="Directory for control‑trial parquet files (default: network share).",
+    )
     return parser.parse_args()
 
 
@@ -43,17 +50,17 @@ def main():
     n_new = args.n_runs
 
     # 1) where parquet files live
-    out_dir = Path("./sweet_results/GRN/controls_hist")
+    out_dir = args.results_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # 2) scan for existing run numbers
     pattern = re.compile(rf"sugar_only_{hz_int}Hz_run_(\d+)\.parquet$")
-    existing_runs = []
-    for p in out_dir.glob(f"sugar_only_{hz_int}Hz_run_*.parquet"):
-        m = pattern.match(p.name)
-        if m:
-            existing_runs.append(int(m.group(1)))
-    max_existing = max(existing_runs) if existing_runs else 0
+    existing = [
+        int(m.group(1))
+        for p in out_dir.glob(f"sugar_only_{hz_int}Hz_run_*.parquet")
+        if (m := pattern.match(p.name))
+    ]
+    max_existing = max(existing) if existing else 0
 
     # 3) set up parameters
     # os.environ["CC"] = "/opt/homebrew/bin/gcc-14"
@@ -75,15 +82,14 @@ def main():
             path_comp="./Completeness_783.csv",
             path_con="./Connectivity_783.parquet",
             n_proc=-1,
-            path_res=Path("./sweet_results/GRN"),
+            path_res=out_dir,
             force_overwrite=False,
         )
 
     print(
         f"Completed runs {max_existing+1} through "
-        f"{max_existing+n_new} at {hz_int} Hz; files in {out_dir.resolve()}"
+        f"{max_existing+n_new} at {hz_int}Hz; files in {out_dir.resolve()}"
     )
-
 
 if __name__ == "__main__":
     main()
