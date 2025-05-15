@@ -130,7 +130,7 @@ def main() -> None:
     if args.subset in ("experiments", "both"):
         for sugar_rate in args.sugar_hz:
             params["r_poi"] = sugar_rate * Hz
-            for cell_type, orn_ids in reversed(list(cell_type_dict.items())):
+            for cell_type, orn_ids in list(cell_type_dict.items()):
                 for orn_rate in args.orn_hz:
                     params["r_poi2"] = orn_rate * Hz
 
