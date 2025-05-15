@@ -64,6 +64,14 @@ def parse_args() -> argparse.Namespace:
         help="Root directory to save results (default: ./sweet_results/GRN)",
     )
     p.add_argument(
+        "--orn-types",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="CELL_TYPE",
+        help="List of ORN cell types to stimulate (default: all available)"
+    )
+    p.add_argument(
         "--sugar-hz",
         type=float,
         nargs="+",
@@ -104,6 +112,15 @@ def main() -> None:
     cell_type_dict: dict[str, list[int]] = defaultdict(list)
     for _, row in orn_df.iterrows():
         cell_type_dict[row["primary_type"].strip()].append(int(row["root_id"]))
+
+    # Filtering Requested ORN's
+    if args.orn_types is not None:
+        requested = set(args.orn_types)
+        available = set(cell_type_dict.keys())
+        missing = requested - available
+        if missing:
+            raise ValueError(f"Unknown ORN types: {', '.join(missing)}")
+        cell_type_dict = {ct: cell_type_dict[ct] for ct in requested}
 
     exp_names: list[str]     = []
     file_paths: list[Path]   = []
