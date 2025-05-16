@@ -127,8 +127,6 @@ def main() -> None:
             raise ValueError(f"Unknown ORN types: {', '.join(missing)}")
         cell_type_dict = {ct: cell_type_dict[ct] for ct in requested}
 
-    if args.reverse:
-        cell_type_dict.rev
 
     exp_names: list[str]     = []
     file_paths: list[Path]   = []
