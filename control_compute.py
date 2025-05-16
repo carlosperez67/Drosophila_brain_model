@@ -73,7 +73,7 @@ def main():
     # 4) run the new experiments, numbering from max_existing + 1
     for offset in range(1, n_new + 1):
         run_idx   = max_existing + offset
-        exp_name  = f"control_trials/sugar_only_{hz_int}Hz_run_{run_idx}"
+        exp_name  = f"sugar_only_{hz_int}Hz_run_{run_idx}"
         run_exp(
             exp_name=exp_name,
             neu_exc=neu_sugar,
