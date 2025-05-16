@@ -34,13 +34,13 @@ def parse_args():
     p.add_argument(
         "--experiments-dir", "-e",
         type=Path,
-        default=Path("./sweet_results/GRN/experiments"),
+        default=Path("/home/cperez67/projects/cperez67/grn_sweeps/grn_sweeps_45Hz/experiments"),
         help="Directory of ORN experiment parquet files",
     )
     p.add_argument(
         "--output-dir", "-o",
         type=Path,
-        required=True,
+        default=Path("/home/cperez67/projects/cperez67/RESULTS/grn_plots"),
         help="Directory to save the PNG plot",
     )
     p.add_argument(
