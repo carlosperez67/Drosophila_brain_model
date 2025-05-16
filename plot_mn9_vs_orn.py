@@ -21,6 +21,11 @@ import matplotlib.pyplot as plt
 from model import default_params
 import utils as utl  # provides load_exps & get_rate
 
+MN9_LOOKUP = {
+    "1": 720575940660219265,
+    "2": 720575940618238523,
+}
+
 def parse_args():
     p = argparse.ArgumentParser(
         description="Plot MN9 firing rate vs ORN frequency panels"
@@ -167,6 +172,7 @@ def run_for_mn9(args, mn9_int: int):
     df_rate, df_std, mn9_id, exp_info = load_experiment_rates(
         args.experiments_dir, args.hz, mn9_int
     )
+    mn9_id = MN9_LOOKUP[str(mn9_int)]
     out_file = args.output_dir / f"mn9{mn9_int}_vs_orn_{args.hz}Hz.png"
     make_plot(df_rate, df_std, mn9_id, exp_info,
               ctrl_mean, ctrl_sd, args.hz, str(mn9_int), out_file)
