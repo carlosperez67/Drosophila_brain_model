@@ -15,7 +15,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
-pd.set_option("io.parquet.engine", "pyarrow")
+# pd.set_option("io.parquet.engine", "pyarrow")
 
 import matplotlib.pyplot as plt
 from model import default_params
