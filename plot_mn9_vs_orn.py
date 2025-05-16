@@ -12,9 +12,15 @@ import re
 
 import numpy as np
 import pandas as pd
+
+# Force PyArrow as the Parquet engine (avoids fastparquet OSError issues)
+pd.set_option("io.parquet.engine", "pyarrow")
+
 import matplotlib.pyplot as plt
 
-import utils as utl  # assumes load_exps & get_rate live here
+# model.default_params provides t_run, n_run
+from model import default_params
+import utils as utl  # provides load_exps & get_rate
 
 # ---------------------------------------------------------------------------
 # argument parsing
@@ -25,21 +31,24 @@ def parse_args():
     )
     p.add_argument(
         "--control-dir",
+        "-c",
         type=Path,
-        default=Path("/project/def‑mdgordon‑ab/cperez67/RESULTS/control_trials"),
-        help="Directory of control-trial parquets (sugar_only_{hz}Hz_run_*.parquet)",
+        default=Path("/project/def-mdgordon-ab/cperez67/RESULTS/control_trials"),
+        help="Directory of control-trial parquet files",
     )
     p.add_argument(
         "--experiments-dir",
+        "-e",
         type=Path,
         default=Path("./sweet_results/GRN/experiments"),
-        help="Directory of ORN experiment parquets (sugar{hz}Hz_plus_*_{orn}Hz.parquet)",
+        help="Directory of ORN experiment parquet files",
     )
     p.add_argument(
         "--output-dir",
+        "-o",
         type=Path,
         required=True,
-        help="Where to save the PNG plots",
+        help="Directory to save the generated PNG plot(s)",
     )
     p.add_argument(
         "--hz",
@@ -49,126 +58,134 @@ def parse_args():
     )
     p.add_argument(
         "--mn9",
-        type=int,
-        choices=[1,2],
-        default=1,
-        help="Which MN9 neuron to plot (1 or 2)",
+        choices=["1","2","both"],
+        default="1",
+        help="Which MN9 neuron to plot (default: 1)",
     )
     return p.parse_args()
 
-
 # ---------------------------------------------------------------------------
-# main
+# data collection & plotting
 # ---------------------------------------------------------------------------
-def main():
-    args = parse_args()
-    ctrl_dir = args.control_dir
-    exp_dir  = args.experiments_dir
-    out_dir  = args.output_dir
-    hz       = args.hz
-    mn9      = args.mn9
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # find control files for this sugar Hz
+def collect_files(ctrl_dir, exp_dir, hz):
     ctrl_pattern = f"sugar_only_{hz}Hz_run_*.parquet"
-    ctrl_files = sorted(ctrl_dir.glob(ctrl_pattern))
-    if not ctrl_files:
-        raise FileNotFoundError(f"No controls found: {ctrl_pattern}")
+    ctrls = sorted(ctrl_dir.glob(ctrl_pattern))
+    if not ctrls:
+        raise FileNotFoundError(f"No control files matching {ctrl_pattern}")
+    exp_rx = re.compile(rf"sugar{hz}Hz_plus_(.+)_(\d+)Hz\.parquet$")
+    exps = [p for p in sorted(exp_dir.glob(f"sugar{hz}Hz_plus_*_*.parquet"))
+            if exp_rx.match(p.name)]
+    if not exps:
+        raise FileNotFoundError(f"No experiment files for sugar{hz}Hz in {exp_dir}")
+    return ctrls, exps
 
-    # find ORN experiment files for this sugar Hz
-    exp_pattern = f"sugar{hz}Hz_plus_*_?????Hz.parquet"
-    # the ????: block matches the ORN-frequency number
-    exp_files = sorted(exp_dir.glob(f"sugar{hz}Hz_plus_*_*.parquet"))
-    if not exp_files:
-        raise FileNotFoundError(f"No experiments found in {exp_dir} for sugar{hz}Hz")
+def load_rates(parquet_paths):
+    df_spike = utl.load_exps([str(p) for p in parquet_paths])
+    return utl.get_rate(
+        df_spike,
+        t_run=default_params["t_run"],
+        n_run=default_params["n_run"],
+        flyid2name=None
+    )
 
-    # load & compute rates
-    all_files = ctrl_files + exp_files
-    df_spike = utl.load_exps([str(p) for p in all_files])
-    df_rate, df_std = utl.get_rate(df_spike,
-                                   t_run=utl.default_params["t_run"],
-                                   n_run=utl.default_params["n_run"],
-                                   flyid2name=None)
+def parse_exp_info(exp_paths, hz):
+    rx = re.compile(rf"sugar{hz}Hz_plus_(.+)_(\d+)Hz\.parquet$")
+    info = []
+    for p in exp_paths:
+        m = rx.match(p.name)
+        if m:
+            cell, orn = m.group(1), int(m.group(2))
+            info.append((cell, orn, p.stem))
+    return info
 
-    # neuron ID lookup: assume returned index is the actual neuron id
-    mn9_id = list(df_rate.index)[mn9-1]  # if index sorted so that MN9 1 is first, else adjust
-
-    # control statistics
-    ctrl_cols = [p.stem for p in ctrl_files]
+def make_plot(df_rate, df_std, mn9_id, ctrl_cols, exp_info, hz, mn9_label, out_path):
+    # control stats
     ctrl_vals = df_rate.loc[mn9_id, ctrl_cols].values
-    ctrl_mean = float(np.mean(ctrl_vals))
-    ctrl_sd   = float(np.std(ctrl_vals))
+    ctrl_mean = np.mean(ctrl_vals)
+    ctrl_sd   = np.std(ctrl_vals)
 
-    # parse experiments by cell type
-    # col names = file stem = 'sugar{hz}Hz_plus_{cell}_{orn}Hz'
-    exp_info = []
-    rx = re.compile(rf"sugar{hz}Hz_plus_(.+)_(\d+)Hz$")
-    for p in exp_files:
-        stem = p.stem
-        m = rx.match(stem)
-        if not m:
-            continue
-        cell, orn = m.group(1), int(m.group(2))
-        exp_info.append((cell, orn, stem))
-
-    # pick first five cell types alphabetically
-    cells = sorted({info[0] for info in exp_info})[:5]
+    # pick first five cell types
+    cells = sorted({c for c,_,_ in exp_info})[:5]
     panels = cells + ["Control"]
-    n_panels = len(panels)
-    ncols = 3
-    nrows = (n_panels + ncols - 1)//ncols
 
-    fig, axes = plt.subplots(nrows, ncols,
-                             figsize=(4*ncols, 3*nrows),
+    # global axis limits
+    all_x, all_y = [], []
+    for cell in cells:
+        pts = [(orn, df_rate.at[mn9_id,stem]) for (cell0,orn,stem) in exp_info if cell0==cell]
+        pts.sort(key=lambda x: x[0])
+        xs, ys = zip(*pts)
+        all_x += xs; all_y += ys
+    all_y += list(ctrl_vals)
+    xmin, xmax = min(all_x), max(all_x)
+    ymin, ymax = min(all_y), max(all_y)
+
+    ncols = 3
+    nrows = (len(panels) + ncols - 1)//ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4*ncols, 3*nrows),
                              sharex=True, sharey=True)
     axes = axes.flatten()
 
-    for i, key in enumerate(panels):
-        ax = axes[i]
+    for idx, key in enumerate(panels):
+        ax = axes[idx]
         if key == "Control":
-            # horizontal band
             ax.axhline(ctrl_mean, linestyle="--", label="mean")
-            ax.fill_between(
-                [0, max([orn for (_,orn,_) in exp_info])+5],
-                [ctrl_mean-ctrl_sd]*2,
-                [ctrl_mean+ctrl_sd]*2,
-                alpha=0.2, label="±1 SD"
-            )
-            ax.set_title("Control")
+            ax.fill_between([xmin-1, xmax+1],
+                            [ctrl_mean-ctrl_sd]*2,
+                            [ctrl_mean+ctrl_sd]*2,
+                            alpha=0.2, label="+/-1SD")
         else:
-            # gather points
-            pts = [(orn, float(df_rate.loc[mn9_id, stem]),
-                    float(df_std.loc[mn9_id, stem]))
-                   for (cell,orn,stem) in exp_info if cell==key]
-            pts = sorted(pts, key=lambda x: x[0])
-            x, y, yerr = zip(*pts)
-
-            # scatter + errorbars
-            ax.errorbar(x, y, yerr=yerr, fmt="o-", label=key)
-
-            # significance: |mean - ctrl_mean| > 2*ctrl_sd
-            for xi, yi in zip(x,y):
-                if abs(yi - ctrl_mean) > 2*ctrl_sd:
-                    ax.text(xi, yi, "*", color="red", fontsize=12,
+            pts = [(orn,
+                    df_rate.at[mn9_id,stem],
+                    df_std.at[mn9_id,stem])
+                   for (cell0,orn,stem) in exp_info if cell0==key]
+            pts.sort(key=lambda x: x[0])
+            xs, ys, errs = zip(*pts)
+            ax.errorbar(xs, ys, yerr=errs, fmt="o-", label=key)
+            for x,y in zip(xs,ys):
+                if abs(y - ctrl_mean) > 2*ctrl_sd:
+                    ax.text(x, y, "*", color="red", fontsize=12,
                             ha="center", va="bottom")
-
-            ax.set_title(key)
-
+        ax.set_title(key)
+        ax.set_xlim(xmin-1, xmax+1)
+        ax.set_ylim(ymin - 0.1*(ymax-ymin), ymax + 0.1*(ymax-ymin))
         ax.set_xlabel("ORN freq (Hz)")
-        ax.set_ylabel(f"MN9_{mn9} rate (Hz)")
+        ax.set_ylabel(f"MN9 {mn9_label} rate (Hz)")
         ax.legend(fontsize="small")
 
-    # hide unused
-    for j in range(n_panels, len(axes)):
+    # hide any extra axes
+    for j in range(len(panels), len(axes)):
         axes[j].axis("off")
 
-    fig.suptitle(f"MN9_{mn9} firing rate vs ORN freq  (sugar {hz} Hz)", y=1.02)
+    fig.suptitle(f"MN9 {mn9_label} firing rate vs ORN freq (sugar {hz}Hz)", y=1.02)
     plt.tight_layout()
+    fig.savefig(out_path, dpi=200)
+    plt.close(fig)
 
-    out_file = out_dir / f"mn9{mn9}_vs_orn_{hz}Hz.png"
-    fig.savefig(out_file, dpi=200)
-    print(f"Saved plot to {out_file}")
+def run_for_mn9(args, mn9_int):
+    ctrls, exps = collect_files(args.control_dir, args.experiments_dir, args.hz)
+    all_files = ctrls + exps
+
+    df_rate, df_std = load_rates(all_files)
+    mn9_id = df_rate.index[mn9_int-1]  # select row by position
+
+    ctrl_cols = [p.stem for p in ctrls]
+    exp_info  = parse_exp_info(exps, args.hz)
+
+    out_name = f"mn9{mn9_int}_vs_orn_{args.hz}Hz.png"
+    out_path = args.output_dir / out_name
+    make_plot(df_rate, df_std, mn9_id, ctrl_cols, exp_info,
+              args.hz, mn9_int, out_path)
+    print(f"Saved plot: {out_path}")
+
+def main():
+    args = parse_args()
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.mn9 in ("1","2"):
+        run_for_mn9(args, int(args.mn9))
+    else:
+        run_for_mn9(args, 1)
+        run_for_mn9(args, 2)
 
 if __name__ == "__main__":
     main()
