@@ -1,3 +1,5 @@
+import warnings
+
 import pandas as pd
 import numpy as np
 
@@ -20,10 +22,14 @@ def load_exps(l_pqt):
     dfs = []
     for p in l_pqt:
         # load metadata from pickle
-        with open(p, 'rb') as f:
-            df = pd.read_parquet(p)
-            df.loc[:, 't'] = df.loc[:, 't'].astype(float)
-            dfs.append(df)
+        try:
+            with open(p, 'rb') as f:
+                df = pd.read_parquet(p)
+                df.loc[:, 't'] = df.loc[:, 't'].astype(float)
+                dfs.append(df)
+        except Exception as e:
+            warnings.warn(f"Skipping corrupted parquet file {p}: {e}")
+            continue
 
     df = pd.concat(dfs)
 

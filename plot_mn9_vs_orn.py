@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 import warnings
 
+
 import numpy as np
 import pandas as pd
 pd.set_option("io.parquet.engine", "pyarrow")
@@ -122,58 +123,44 @@ def load_experiment_rates(exp_dir: Path, hz: int, mn9_idx: int):
 
 def make_plot(df_rate, df_std, mn9_id, exp_info,
               ctrl_mean, ctrl_sd, hz, mn9_label, out_path):
-    cells  = sorted({cell for cell, _, _ in exp_info})
-    panels = cells + ["Control"]
+    # Determine unique cell types and ORN range
+    cells = sorted({cell for cell, _, _ in exp_info})
+    orn_vals = sorted({orn for _, orn, _ in exp_info})
+    xmin, xmax = min(orn_vals), max(orn_vals)
 
-    # compute axis limits
-    all_x = [orn for _, orn, _ in exp_info]
-    all_y = [df_rate.at[mn9_id, col] for _, _, col in exp_info] + [ctrl_mean]
-    xmin, xmax = min(all_x), max(all_x)
-    ymin, ymax = min(all_y), max(all_y)
+    plt.figure(figsize=(8, 6))
 
-    ncols = 3
-    nrows = (len(panels) + ncols - 1) // ncols
-    fig, axes = plt.subplots(nrows, ncols,
-                             figsize=(4*ncols, 3*nrows),
-                             sharex=True, sharey=True)
-    axes = axes.flatten()
+    # Plot each cell type’s curve with error bars
+    for cell in cells:
+        pts = sorted([
+            (orn,
+             df_rate.at[mn9_id, col],
+             df_std.at[mn9_id, col])
+            for (c, orn, col) in exp_info if c == cell
+        ], key=lambda x: x[0])
+        xs, ys, errs = zip(*pts)
+        plt.errorbar(xs, ys, yerr=errs, fmt='o-', label=cell)
 
-    for i, key in enumerate(panels):
-        ax = axes[i]
-        if key == "Control":
-            ax.axhline(ctrl_mean, linestyle="--", label="mean")
-            ax.fill_between([xmin-1, xmax+1],
-                            [ctrl_mean-ctrl_sd]*2,
-                            [ctrl_mean+ctrl_sd]*2,
-                            alpha=0.2, label="±1 SD")
-        else:
-            pts = sorted([
-                (orn,
-                 df_rate.at[mn9_id, col],
-                 df_std.at[mn9_id, col])
-                for (cell, orn, col) in exp_info if cell == key
-            ], key=lambda x: x[0])
-            xs, ys, errs = zip(*pts)
-            ax.errorbar(xs, ys, yerr=errs, fmt="o-", label=key)
-            for x, y in zip(xs, ys):
-                if abs(y - ctrl_mean) > 2 * ctrl_sd:
-                    ax.text(x, y, "*", color="red", ha="center", va="bottom")
+    # Overlay control mean ±1 SD
+    plt.axhline(ctrl_mean, linestyle='--', label='Control mean')
+    plt.fill_between(
+        [xmin, xmax],
+        [ctrl_mean - ctrl_sd] * 2,
+        [ctrl_mean + ctrl_sd] * 2,
+        alpha=0.2,
+        label='Control ±1 SD'
+    )
 
-        ax.set_title(key)
-        ax.set_xlim(xmin - 1, xmax + 1)
-        ax.set_ylim(ymin - 0.1*(ymax - ymin), ymax + 0.1*(ymax - ymin))
-        ax.set_xlabel("ORN freq (Hz)")
-        ax.set_ylabel(f"MN9 {mn9_label} rate (Hz)")
-        ax.legend(fontsize="small")
-
-    # hide any unused subplots
-    for j in range(len(panels), len(axes)):
-        axes[j].axis("off")
-
-    fig.suptitle(f"MN9 {mn9_label} firing rate vs ORN freq (sugar {hz}Hz)", y=1.02)
+    # Labels, legend, title
+    plt.xlabel("ORN freq (Hz)")
+    plt.ylabel(f"MN9 {mn9_label} rate (Hz)")
+    plt.title(f"MN9 {mn9_label} firing rate vs ORN freq (sugar {hz}Hz)")
+    plt.legend(fontsize="small")
     plt.tight_layout()
-    fig.savefig(out_path, dpi=200)
-    plt.close(fig)
+
+    # Save and close
+    plt.savefig(out_path, dpi=200)
+    plt.close()
 
 def run_for_mn9(args, mn9_int: int):
     ctrl_mean, ctrl_sd, _ = load_control_stats(args.summary_stats, args.hz)
