@@ -17,7 +17,7 @@ def build_flyid2name(sugars: Iterable[int]) -> Dict[int, str]:
     mapping.update(CELL_LOOKUP_REV)
     return mapping
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_PATH = PROJECT_ROOT / "Data" / "sweet.csv"
 
 def get_sugar_ids():
