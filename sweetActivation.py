@@ -20,15 +20,18 @@ Example:
 """
 
 import argparse
+# import os
 from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
 from brian2 import Hz
+from brian2 import prefs
+prefs.codegen.target = "numpy"
 
 from model import run_exp
-from model import default_params as params
-import utils as utl
+from model import default_params
+# import utils as utl
 
 # ---------------------------------------------------------------------------
 # paths and environment
@@ -42,7 +45,7 @@ CONFIG = {
     "path_res" : Path("./sweet_results/GRN"),
     "n_proc"   : -1,
 }
-DEFAULT_SUGAR_FREQS = [40]
+DEFAULT_SUGAR_FREQS = [45]
 DEFAULT_ORN_FREQS   = list(range(20, 201, 10))
 
 # ---------------------------------------------------------------------------
@@ -134,15 +137,15 @@ def main() -> None:
     # controls
     if args.subset in ("controls", "both"):
         for sugar_rate in args.sugar_hz:
-            params["r_poi"]  = sugar_rate * Hz
-            params["r_poi2"] = 0 * Hz
+            default_params["r_poi"]  = sugar_rate * Hz
+            # params["r_poi2"] = 0 * Hz
 
             exp_name = f"controls/sugar_only_{int(sugar_rate)}Hz"
             run_exp(
                 exp_name=exp_name,
                 neu_exc=neu_sugar,
-                neu_exc2=[],
-                params=params,
+                # neu_exc2=[],
+                params=default_params,
                 **CONFIG,
                 force_overwrite=False,
             )
@@ -152,11 +155,11 @@ def main() -> None:
     # experiments
     if args.subset in ("experiments", "both"):
         for sugar_rate in args.sugar_hz:
-            params["r_poi"] = sugar_rate * Hz
+            default_params["r_poi"] = sugar_rate * Hz
             cell_type_items = reversed(list(cell_type_dict.items())) if args.reverse else list(cell_type_dict.items())
             for cell_type, orn_ids in cell_type_items:
                 for orn_rate in args.orn_hz:
-                    params["r_poi2"] = orn_rate * Hz
+                    default_params["r_poi2"] = orn_rate * Hz
 
                     exp_name = (
                         f"experiments/"
@@ -166,7 +169,8 @@ def main() -> None:
                         exp_name=exp_name,
                         neu_exc=neu_sugar,
                         neu_exc2=orn_ids,
-                        params=params,
+                        # neu_slnc=[720575940603985952],
+                        params=default_params,
                         **CONFIG,
                         force_overwrite=False,
                     )
@@ -174,27 +178,6 @@ def main() -> None:
                     file_paths.append(res_root / f"{exp_name}.parquet")
 
     print(f"Finished running {len(exp_names)} experiments")
-
-    if not file_paths:
-        print("No experiments selected; exiting without analysis")
-        return
-
-    # compute firing rates and stds
-    flyid2name = {nid: f"sugar_{idx+1}" for idx, nid in enumerate(neu_sugar)}
-    print("Computing firing rates…")
-    df_spike = utl.load_exps([str(p) for p in file_paths])
-    df_rate, df_std = utl.get_rate(
-        df_spike,
-        t_run=params["t_run"],
-        n_run=params["n_run"],
-        flyid2name=flyid2name,
-    )
-
-    # save summary CSVs next to res_dir
-    root_out = res_root.parent
-    df_rate.fillna(0).to_csv(root_out / "all_rates.csv")
-    df_std.fillna(0).to_csv(root_out / "all_rates_std.csv")
-    print(f"Saved rate matrices to {root_out.resolve()}")
 
 
 if __name__ == "__main__":
