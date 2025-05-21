@@ -25,17 +25,14 @@ import argparse, re
 import warnings
 from pathlib import Path
 from typing import Iterable, Optional, Dict, Tuple, List
-from collections import defaultdict
-
 import pandas as pd
-from sympy.codegen.rewriting import exp2_opt
 
 # --------------------------------------------------------------------------
 # project-level helpers
 # --------------------------------------------------------------------------
-from scripts.contants import CELL_LOOKUP, build_flyid2name, get_sugar_ids  # id → readable-name mapping
-from model import default_params                  # provides t_run, n_run
-import utils as utl                               # load_exps(), get_rate()
+from scripts.constants import build_flyid2name, get_sugar_ids
+from model import default_params
+import utils as utl
 
 # --------------------------------------------------------------------------
 # defaults
