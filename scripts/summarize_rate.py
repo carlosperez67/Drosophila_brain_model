@@ -30,7 +30,7 @@ import pandas as pd
 # --------------------------------------------------------------------------
 # project-level helpers
 # --------------------------------------------------------------------------
-from scripts.constants import build_flyid2name, get_sugar_ids
+from constants import build_flyid2name, get_sugar_ids
 from model import default_params
 import utils as utl
 
