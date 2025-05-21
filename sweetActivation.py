@@ -20,24 +20,24 @@ Example:
 """
 
 import argparse
-# import os
+import os
 from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
 from brian2 import Hz
 from brian2 import prefs
-prefs.codegen.target = "numpy"
+# prefs.codegen.target = "numpy"
 
 from model import run_exp
 from model import default_params
-# import utils as utl
+import utils as utl
 
 # ---------------------------------------------------------------------------
 # paths and environment
 # ---------------------------------------------------------------------------
-# os.environ["CC"] = "/opt/homebrew/bin/gcc-14"
-# os.environ["CXX"] = "/opt/homebrew/bin/g++-14"
+os.environ["CC"] = "/opt/homebrew/bin/gcc-14"
+os.environ["CXX"] = "/opt/homebrew/bin/g++-14"
 
 CONFIG = {
     "path_comp": "./Completeness_783.csv",
