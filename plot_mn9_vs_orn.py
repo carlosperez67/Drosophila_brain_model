@@ -224,28 +224,25 @@ def make_plot(
                     orn,
                     df_rate.at[mn9_label, col],
                     df_std.at[mn9_label, col],
+                    col,  # include column name for annotation
                 )
                 for c, orn, col in exp_info
                 if c == cell
             ],
             key=lambda x: x[0],
         )
-        xs, ys, errs = zip(*pts)
+        xs, ys, errs, labels = zip(*pts)
         plt.errorbar(xs, ys, yerr=errs, fmt="o-", label=cell)
 
-    # Control band
-    plt.axhline(ctrl_mean, linestyle="--", label="Control mean")
-    plt.fill_between(
-        [xmin, xmax],
-        [ctrl_mean - ctrl_sd] * 2,
-        [ctrl_mean + ctrl_sd] * 2,
-        alpha=0.2,
-        label="Control ±1 SD",
-    )
+        # Add small text annotations
+        for x, y, label in zip(xs, ys, labels):
+            lbl = label.split("_plus_")[-1]  # get <CELL>_<FREQ>Hz
+            plt.annotate(lbl, (x, y), textcoords="offset points",
+                         xytext=(5, 5), ha='left', fontsize=7, alpha=0.75)
 
     plt.xlabel("ORN frequency (Hz)")
-    plt.ylabel(f"MN9 {mn9_label} rate (Hz)")
-    plt.title(f"MN9 {mn9_label} firing rate vs ORN frequency (sugar {hz} Hz)")
+    plt.ylabel(f"{mn9_label} rate (Hz)")
+    plt.title(f"{mn9_label} firing rate vs ORN frequency (sugar {hz} Hz)")
     plt.legend(fontsize="small")
     plt.tight_layout()
     plt.savefig(out_path, dpi=200)
