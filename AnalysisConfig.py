@@ -7,6 +7,8 @@ from brian2 import Hz
 from matplotlib import pyplot as plt
 
 import utils as utl
+from ExperimentPlotter import ExperimentPlotterBuilder
+from constants import read_ids
 from model import default_params, run_exp
 
 # ----------------------
@@ -14,32 +16,35 @@ from model import default_params, run_exp
 #
 # Change here to run script with different parameters
 # ----------------------
-DEFAULT_RES_DIR        = Path("/Volumes/T7/GordonLab/EGG_LAYING/oviEn")
-DEFAULT_GROUP_1_HZ     = [20]
-DEFAULT_GROUP_2_HZ     = None
-DEFAULT_GROUP_1_CSV    = Path("./Data/oviEN.csv")
-DEFAULT_GROUP_2_CSV    = None                     # Set to None if not using
-DEFAULT_GROUP_1_NAME   = "group-1"
-DEFAULT_GROUP_2_NAME   = "group-2"
+
+DEFAULT_RES_DIR = Path("/Volumes/T7/GordonLab/Analysis/test")
+DEFAULT_GROUP_1_HZ = [20, 40, 60, 80, 100, 120, 140, 160, 180, 200]
+DEFAULT_GROUP_2_HZ = None
+DEFAULT_GROUP_1_CSV = Path("./Data/ActivatedNeurons/oviEN_upstream.csv")
+DEFAULT_GROUP_2_CSV = None  # Set to None if not using
+DEFAULT_GROUP_1_NAME = "oviEN_upstream"
+DEFAULT_GROUP_2_NAME = "group-2"
+DEFAULT_MONITORED_NEURONS_CSV = Path("./Data/MonitoredNeurons/oviENs.csv")
+
 
 CONFIG = {
     "path_comp": "./Completeness_783.csv",
-    "path_con" : "./Connectivity_783.parquet",
-    "path_res" : DEFAULT_RES_DIR,
-    "n_proc"   : 10,
+    "path_con": "./Connectivity_783.parquet",
+    "path_res": DEFAULT_RES_DIR,
+    "n_proc": 10,
 }
 
 class AnalysisConfig:
     def __init__(
-        self,
-        res_dir: Path,
-        group_1_csv: Path,
-        group_1_hz: list[int],
-        group_2_csv: Path | None = None,
-        group_2_hz: Optional[list[int]] = None,
-        group_1_name: Optional[str] = None,
-        group_2_name: Optional[str] = None,
-        glob_pat: Optional[str] = "*",
+            self,
+            res_dir: Path,
+            group_1_csv: Path,
+            group_1_hz: list[int],
+            group_2_csv: Path | None = None,
+            group_2_hz: Optional[list[int]] = None,
+            group_1_name: Optional[str] = None,
+            group_2_name: Optional[str] = None,
+            glob_pat: Optional[str] = "*",
     ):
         if group_2_csv is not None and group_2_hz is None:
             raise ValueError("group_2_hz must be provided when group_2_csv is given.")
@@ -59,12 +64,6 @@ class AnalysisConfig:
         self.df_rate = None
         self.df_std = None
 
-    @staticmethod
-    def _read_ids(csv_path: Path) -> list[int]:
-        df = pd.read_csv(csv_path)
-        if "root_id" not in df.columns:
-            raise ValueError(f"'root_id' column not found in {csv_path}")
-        return df["root_id"].astype(int).tolist()
 
     def get_ids(self) -> tuple[list[int], Optional[list[int]]]:
         """
@@ -73,12 +72,11 @@ class AnalysisConfig:
               - group_1_neu_ids (list[int])
               - group_2_neu_ids (list[int] or None)
         """
-        self.group_1_neu_ids = self._read_ids(self.group_1_csv)
+        self.group_1_neu_ids = read_ids(self.group_1_csv)
         self.group_2_neu_ids = (
-            self._read_ids(self.group_2_csv) if self.use_group_2 else None
+            read_ids(self.group_2_csv) if self.use_group_2 else None
         )
         return self.group_1_neu_ids, self.group_2_neu_ids
-
 
     def get_parquet_files(self) -> list[Path]:
         parquet_files = [p for p in self.res_dir.rglob(self.glob_pat) if p.suffix == ".parquet"]
@@ -88,7 +86,7 @@ class AnalysisConfig:
         return parquet_files
 
     def run_one_group(self, group: int, exp_names, file_paths):
-        self.get_ids()          # Ensure neuron IDs are loaded
+        self.get_ids()  # Ensure neuron IDs are loaded
 
         match group:
             case 1:
@@ -161,7 +159,6 @@ class AnalysisConfig:
 
         return exp_names, file_paths
 
-
     def neuron_activations(self):
         self.res_dir.mkdir(parents=True, exist_ok=True)
         exp_names: list[str] = []
@@ -181,18 +178,17 @@ class AnalysisConfig:
         hz2 = int(matches[1]) if len(matches) > 1 else float("inf")
         return hz1, hz2
 
-
     def summarize_rates(self):
         parquet_files = self.get_parquet_files()
-        #TODO: Add a good naming method
+        # TODO: Add a good naming method
         # flyid2name = build_flyid2name(sugar_ids)
         df_spike = utl.load_exps([str(p) for p in parquet_files])
 
         df_rate, df_std = utl.get_rate(
             df_spike,
-            t_run      = default_params["t_run"],
-            n_run      = default_params["n_run"],
-            #TODO: Add a good naming method
+            t_run=default_params["t_run"],
+            n_run=default_params["n_run"],
+            # TODO: Add a good naming method
             # flyid2name = flyid2name,
         )
         # df_rate.sort_values(df_spike)
@@ -208,24 +204,172 @@ class AnalysisConfig:
         self.df_std = df_std
         print(f"CSV summaries written to {self.res_dir.resolve()}")
 
+    @staticmethod
+    def _filter_columns(df: pd.DataFrame, pattern: str) -> list[str]:
+        """Return columns whose names match *pattern* (regex)."""
+        return [c for c in df.columns if re.search(pattern, c)]
+
+    def _ensure_plot_dir(self) -> Path:
+        plot_dir = self.res_dir / "plots"
+        plot_dir.mkdir(parents=True, exist_ok=True)
+        return plot_dir
 
     def _load_summary_frames(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Return mean and std DataFrames indexed by `root_id`."""
-        if not(self.df_rate and self.df_std):
+        if not (self.df_rate and self.df_std):
             rate_csv = self.res_dir / "rates.csv"
-            std_csv  = self.res_dir / "std_rates.csv"
+            std_csv = self.res_dir / "std_rates.csv"
             if not rate_csv.exists() or not std_csv.exists():
                 raise FileNotFoundError(
                     "rates.csv / std_rates.csv not found – run `summarize_rates()` first"
                 )
             self.df_rate = pd.read_csv(rate_csv, index_col=0)
-            self.df_std  = pd.read_csv(std_csv,  index_col=0)
+            self.df_std = pd.read_csv(std_csv, index_col=0)
         return self.df_rate, self.df_std
 
     def _ensure_plot_dir(self) -> Path:
         plot_dir = self.res_dir / "plots"
         plot_dir.mkdir(parents=True, exist_ok=True)
         return plot_dir
+
+    @staticmethod
+    def _neuron_labels(
+            self,
+            neu_ids: list[int],
+            meta_csv: Optional[Path] = None,
+    ) -> list[str]:
+        """
+        Return display labels for the chosen neurons.
+        If *meta_csv* is supplied, look up a 'cell_type' column; otherwise use root_id.
+        """
+        if meta_csv is None:
+            return [str(rid) for rid in neu_ids]
+
+        meta = pd.read_csv(meta_csv)
+        if "root_id" not in meta.columns:
+            raise ValueError("'root_id' column missing in meta CSV.")
+        meta = meta.set_index("root_id")
+        labels = []
+        for rid in neu_ids:
+            try:
+                ctype = meta.loc[rid, "cell_type"]
+                labels.append(f"{ctype} ({rid})")
+            except KeyError:
+                labels.append(str(rid))
+        return labels
+
+    def _subplot_per_neuron(
+            self,
+            df_mean: pd.DataFrame,
+            df_std: pd.DataFrame,
+            neu_ids: list[int],
+            cols: list[str],
+            title: str,
+            meta_csv: Optional[Path],
+            file_out: Path,
+    ) -> None:
+        """Create one bar-chart subplot per neuron (± s.d.)."""
+        labels = self._neuron_labels(neu_ids, meta_csv)
+        n = len(neu_ids)
+        fig, axes = plt.subplots(
+            nrows=n,
+            ncols=1,
+            figsize=(14, 4 * n),
+            sharex=True,
+        )
+        if n == 1:  # axes becomes a single Axes when n==1
+            axes = [axes]
+
+        for ax, rid, lbl in zip(axes, neu_ids, labels):
+            means = df_mean.loc[rid, cols]
+            errs = df_std.loc[rid, cols]
+            means.plot.bar(
+                yerr=errs,
+                ax=ax,
+                capsize=3,
+                legend=False,
+                rot=0,
+            )
+            ax.set_ylabel("Spikes / s")
+            ax.set_title(lbl, loc="left", pad=4)
+
+        axes[-1].set_xticklabels(cols, rotation=45, ha="right")
+        fig.suptitle(title, fontsize=16, y=1.02)
+        fig.tight_layout()
+        file_out.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(file_out, dpi=300)
+        plt.close(fig)
+
+    def plot_single_group_per_neuron(
+            self,
+            group: int = 1,
+            meta_csv: Optional[Path] = None,
+    ) -> Path:
+        """
+        Plot *each* monitored neuron’s response for single-group activations.
+
+        Parameters
+        ----------
+        group     : 1 or 2
+        meta_csv  : optional CSV with columns ['root_id','cell_type', …]
+        """
+        if group not in {1, 2}:
+            raise ValueError("group must be 1 or 2")
+
+        # resolve IDs, names, columns
+        neu_ids, g_name = (
+            (self.group_1_neu_ids, self.group_1_name or "group1")
+            if group == 1 else
+            (self.group_2_neu_ids, self.group_2_name or "group2")
+        )
+        if neu_ids is None:
+            raise RuntimeError("Call `get_ids()` before plotting.")
+
+        df_rate, df_std = self._load_summary_frames()
+        cols = self._filter_columns(df_rate, rf"^{g_name}_[0-9]+Hz$")
+        if not cols:
+            raise RuntimeError(f"No single-group columns found for {g_name}.")
+
+        out_png = self._ensure_plot_dir() / f"{g_name}_per_neuron.png"
+        self._subplot_per_neuron(
+            df_mean=df_rate,
+            df_std=df_std,
+            neu_ids=neu_ids,
+            cols=cols,
+            title=f"{g_name}: response per neuron (no aggregation)",
+            meta_csv=meta_csv,
+            file_out=out_png,
+        )
+        return out_png
+
+    def plot_pairwise_per_neuron(
+            self,
+            meta_csv: Optional[Path] = None,
+    ) -> Path:
+        """
+        Plot each monitored neuron’s response for pairwise (group1 AND group2) activations.
+        """
+        if not self.use_group_2:
+            raise RuntimeError("Pairwise plot requested but group-2 is not configured.")
+
+        df_rate, df_std = self._load_summary_frames()
+        cols = self._filter_columns(df_rate, r"_AND_")
+        if not cols:
+            raise RuntimeError("No pairwise columns found (_AND_).")
+
+        all_neu_ids = list({*(self.group_1_neu_ids or []), *(self.group_2_neu_ids or [])})
+        out_png = self._ensure_plot_dir() / "pairwise_per_neuron.png"
+        self._subplot_per_neuron(
+            df_mean=df_rate,
+            df_std=df_std,
+            neu_ids=all_neu_ids,
+            cols=cols,
+            title="Pairwise activation: response per neuron (no aggregation)",
+            meta_csv=meta_csv,
+            file_out=out_png,
+        )
+        return out_png
+
 
 class AnalysisConfigBuilder:
     def __init__(self, res_dir: Path, group_1_csv: Path, group_1_hz: list[int]):
@@ -243,7 +387,7 @@ class AnalysisConfigBuilder:
         self._group_1_name = name
         return self
 
-    def group_2_csv(self, path: Path) -> "AnalysisConfigBuilder":
+    def group_2_csv(self, path: Path | None = None) -> "AnalysisConfigBuilder":
         self._group_2_csv = path
         return self
 
@@ -276,17 +420,29 @@ class AnalysisConfigBuilder:
 
 
 def main() -> None:
-    experiment = AnalysisConfigBuilder(
+    experiment = (AnalysisConfigBuilder(
         res_dir=DEFAULT_RES_DIR,
         group_1_csv=DEFAULT_GROUP_1_CSV,
         group_1_hz=DEFAULT_GROUP_1_HZ
-    ).group_1_name(DEFAULT_GROUP_1_NAME).group_2_csv(DEFAULT_GROUP_2_CSV).group_2_name(DEFAULT_GROUP_2_NAME).build()
+    )
+                  .group_1_name(DEFAULT_GROUP_1_NAME)
+                  .group_2_csv(DEFAULT_GROUP_2_CSV)
+                  .group_2_name(DEFAULT_GROUP_2_NAME).build())
 
     experiment.neuron_activations()
     experiment.summarize_rates()
 
+    plotter = (
+        ExperimentPlotterBuilder(res_dir=Path(DEFAULT_RES_DIR))
+        .group_name(DEFAULT_GROUP_1_NAME)
+        .group_hz(DEFAULT_GROUP_1_HZ)
+        .mon_csv(DEFAULT_MONITORED_NEURONS_CSV)  # optional
+        .lines_per_subplot(5)  # less than 5 lines per subplot
+    ).build()
+
+    plotter.line_per_neuron()
+    plotter.multiline_by_neuron()
+
+
 if __name__ == "__main__":
     main()
-
-
-
