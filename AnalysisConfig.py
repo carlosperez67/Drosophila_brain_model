@@ -17,14 +17,14 @@ from model import default_params, run_exp
 # Change here to run script with different parameters
 # ----------------------
 
-DEFAULT_RES_DIR = Path("/Volumes/T7/GordonLab/Analysis/test")
+DEFAULT_RES_DIR = Path("/Volumes/T7/GordonLab/Analysis/IR94e_G1_oviEN")
 DEFAULT_GROUP_1_HZ = [20, 40, 60, 80, 100, 120, 140, 160, 180, 200]
-DEFAULT_GROUP_2_HZ = None
-DEFAULT_GROUP_1_CSV = Path("./Data/ActivatedNeurons/oviEN_upstream.csv")
-DEFAULT_GROUP_2_CSV = None  # Set to None if not using
-DEFAULT_GROUP_1_NAME = "oviEN_upstream"
-DEFAULT_GROUP_2_NAME = "group-2"
-DEFAULT_MONITORED_NEURONS_CSV = Path("./Data/MonitoredNeurons/oviENs.csv")
+DEFAULT_GROUP_2_HZ = [20, 40, 60, 80, 100, 120, 140, 160, 180, 200]
+DEFAULT_GROUP_1_CSV = Path("Data/ActivatedNeurons/IR94e_Group1.csv")
+DEFAULT_GROUP_2_CSV = Path("Data/ActivatedNeurons/oviENs.csv")
+DEFAULT_GROUP_1_NAME = "IR94e_Group1"
+DEFAULT_GROUP_2_NAME = "oviEN"
+DEFAULT_MONITORED_NEURONS_CSV = Path("./Data/MonitoredNeurons/oviDN_oviEN.csv")
 
 
 CONFIG = {
@@ -427,6 +427,7 @@ def main() -> None:
     )
                   .group_1_name(DEFAULT_GROUP_1_NAME)
                   .group_2_csv(DEFAULT_GROUP_2_CSV)
+                .group_2_hz(DEFAULT_GROUP_2_HZ)
                   .group_2_name(DEFAULT_GROUP_2_NAME).build())
 
     experiment.neuron_activations()
