@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Optional
 import re
@@ -25,6 +26,9 @@ DEFAULT_GROUP_2_CSV = Path("Data/ActivatedNeurons/oviENs.csv")
 DEFAULT_GROUP_1_NAME = "IR94e_Group1"
 DEFAULT_GROUP_2_NAME = "oviEN"
 DEFAULT_MONITORED_NEURONS_CSV = Path("./Data/MonitoredNeurons/oviDN_oviEN.csv")
+
+os.environ["CC"] = "gcc"
+os.environ["CXX"] = "g++"
 
 
 CONFIG = {

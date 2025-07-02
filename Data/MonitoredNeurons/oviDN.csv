@@ -1,0 +1,11 @@
+root_id,label,name,nt_type,flow,super_class,class,sub_class,cell_type,hemilineage,nerve,connectivity_tag,side,input_synapses,output_synapses
+720575940620625880,['DNp'; 'fru'; 'oviDN; put_PDM15a'],SLP.FLA.3,ACH,efferent,descending,,,['DNpe038'; 'SLP410'; 'oviDNb'],SMPpv1,CV,['feedforward_loop_participant'],left,425,5
+720575940621257340,['DNp; oviDNa#2 from Wang et al 2020a'; 'fru'; 'oviDN; put_PDM15d'],SMP.FLA.45,ACH,efferent,descending,,,['oviDNa_b'; 'SLP410'; 'oviDNb'],SMPpv1,CV,['3_cycle_participant'; 'feedforward_loop_participant'],left,274,124
+720575940632512156,['DNp'; 'fru'; 'oviDN'],SLP.FLA.8,ACH,efferent,descending,,,['DNpe038'; 'SLP410'; 'oviDNb'],SMPpv1,CV,['feedforward_loop_participant'],right,194,12
+720575940603980256,['acetylcholine'; 'DNp'],SMP.FLA.107,,efferent,descending,,,['oviDNb'],SMPpv1,CV,['3_cycle_participant'; 'feedforward_loop_participant'],right,45,41
+720575940646173748,['DNp'; 'pCd1(FW)/SMP487(HB)'],SMP.VES.16,ACH,efferent,descending,,,['oviDNa_b'; 'SLP410'; 'oviDNb'],SMPpv1,CV,['3_cycle_participant'; 'feedforward_loop_participant'],right,218,59
+720575940641518733,['DNp; oviDNb from Wang et al 2020a'; 'fru'; 'pMP1; put_PDM15m'],SMP.FLA.83,ACH,efferent,descending,,,['oviDNb'],SMPpv1,CV,['3_cycle_participant'; 'feedforward_loop_participant'],left,83,68
+720575940642312136,['DNp'; 'fru'; 'oviDNa'],SMP.VES.13,ACH,efferent,descending,,,['oviDNa_a'; 'oviDNa'],SMPpv1,CV,['3_cycle_participant'; 'feedforward_loop_participant'; 'reciprocal'; 'rich_club'],right,729,280
+720575940627921182,['DNp; oviDNa#1 from Wang et al 2020a and Otto et al 2020'; 'fru'; 'oviDNa'],SMP.FLA.13,ACH,efferent,descending,,,['oviDNa_a'; 'oviDNa'],SMPpv1,CV,['3_cycle_participant'; 'feedforward_loop_participant'; 'reciprocal'; 'rich_club'],left,493,392
+720575940612153041,['pCd1(FW)/SMP487(HB)'; 'fru'; 'dsx'; 'oviDNb; pCd1?'],FLA.79,ACH,intrinsic,central,,,['CB1379'; 'pMP3-pCd1'],SMPpv1,,['3_cycle_participant'; 'feedforward_loop_participant'; 'reciprocal'],left,41,129
+720575940610760306,['fru'; 'dsx'; 'oviDNb; pCd1?'],SMP.1442,ACH,intrinsic,central,,,['CB2610'],SMPpv1,,['3_cycle_participant'; 'feedforward_loop_participant'; 'reciprocal'],right,102,100
