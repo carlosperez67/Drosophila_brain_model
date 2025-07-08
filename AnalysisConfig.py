@@ -1,3 +1,5 @@
+import argparse
+import json
 import os
 from pathlib import Path
 from typing import Optional
@@ -12,24 +14,27 @@ from ExperimentPlotter import ExperimentPlotterBuilder
 from constants import read_ids
 from model import default_params, run_exp
 
-# ----------------------
-# Global default config
-#
-# Change here to run script with different parameters
-# ----------------------
-
-DEFAULT_RES_DIR = Path("/Volumes/T7/GordonLab/Analysis/IR94e_G1_oviEN")
-DEFAULT_GROUP_1_HZ = [20, 40, 60, 80, 100, 120, 140, 160, 180, 200]
-DEFAULT_GROUP_2_HZ = [20, 40, 60, 80, 100, 120, 140, 160, 180, 200]
-DEFAULT_GROUP_1_CSV = Path("Data/ActivatedNeurons/IR94e_Group1.csv")
-DEFAULT_GROUP_2_CSV = Path("Data/ActivatedNeurons/oviENs.csv")
-DEFAULT_GROUP_1_NAME = "IR94e_Group1"
-DEFAULT_GROUP_2_NAME = "oviEN"
-DEFAULT_MONITORED_NEURONS_CSV = Path("./Data/MonitoredNeurons/oviDN_oviEN.csv")
-
 os.environ["CC"] = "gcc"
 os.environ["CXX"] = "g++"
 
+parser = argparse.ArgumentParser(description="Load run config from a JSON file")
+parser.add_argument("config", type=str, help="Path to run config")
+args = parser.parse_args()
+
+with open(args.config) as f:
+    config = json.load(f)
+    DEFAULT_RES_DIR = Path(config['DEFAULT_RES_DIR'])
+    DEFAULT_GROUP_1_HZ = config['DEFAULT_GROUP_1_HZ']
+    DEFAULT_GROUP_2_HZ = config.get('DEFAULT_GROUP_2_HZ')
+    DEFAULT_GROUP_1_CSV = Path(config['DEFAULT_GROUP_1_CSV'])
+    DEFAULT_GROUP_2_CSV = Path(config['DEFAULT_GROUP_2_CSV']) if config.get('DEFAULT_GROUP_2_CSV') else None
+    DEFAULT_GROUP_1_NAME = config.get('DEFAULT_GROUP_1_NAME') or "group1"
+    DEFAULT_GROUP_2_NAME = config.get('DEFAULT_GROUP_2_NAME') or "group2"
+    DEFAULT_MONITORED_NEURONS_CSV = Path(config['DEFAULT_MONITORED_NEURONS_CSV'])
+
+os.makedirs(DEFAULT_RES_DIR, exist_ok=True)
+with open(DEFAULT_RES_DIR / 'config.json', 'w') as f:
+    json.dump(config, f, indent=4)
 
 CONFIG = {
     "path_comp": "./Completeness_783.csv",
@@ -67,6 +72,8 @@ class AnalysisConfig:
         self.group_2_neu_ids = None
         self.df_rate = None
         self.df_std = None
+
+
 
 
     def get_ids(self) -> tuple[list[int], Optional[list[int]]]:
@@ -422,8 +429,9 @@ class AnalysisConfigBuilder:
             glob_pat=self._glob_pat
         )
 
-
 def main() -> None:
+
+
     experiment = (AnalysisConfigBuilder(
         res_dir=DEFAULT_RES_DIR,
         group_1_csv=DEFAULT_GROUP_1_CSV,
@@ -441,8 +449,8 @@ def main() -> None:
         ExperimentPlotterBuilder(res_dir=Path(DEFAULT_RES_DIR))
         .group_name(DEFAULT_GROUP_1_NAME)
         .group_hz(DEFAULT_GROUP_1_HZ)
-        .mon_csv(DEFAULT_MONITORED_NEURONS_CSV)  # optional
-        .lines_per_subplot(5)  # less than 5 lines per subplot
+        .mon_csv(DEFAULT_MONITORED_NEURONS_CSV)
+        .lines_per_subplot(5)
     ).build()
 
     plotter.line_per_neuron()
