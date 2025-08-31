@@ -60,3 +60,17 @@ config = {
     'path_con'  : './Connectivity_783.parquet',    # connectivity data
     'n_proc'    : -1,                              # number of CPU cores (-1: use all)
 }
+```
+## Quick Run and Plot Modifications
+
+1. Modify "run_config.json" with all the relevant paths to neuron root_id lists.
+2. [Optional] Change the group names so plots are clearly labelled
+3. [Optional] Add a second group of neurons to activate.
+
+This script will activate all neurons in a "group" simultaneously at the given HZ. THis script will plot the activity of the monitored neurons. This script also saves all neuron activations in a csv names "rates.csv".
+If you would like to activate two different neuron populations at different activations, provide the optional group 2 parameters.
+
+To run:
+```
+python ./AnalysisConfig.py ./run_config.json
+```
