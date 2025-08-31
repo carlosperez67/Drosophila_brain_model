@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Iterable
 import re
 
 import pandas as pd
@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 
 import utils as utl
 from ExperimentPlotter import ExperimentPlotterBuilder
-from constants import read_ids
+from constants import read_ids, build_flyid2name
 from model import default_params, run_exp
 
 os.environ["CC"] = "gcc"
@@ -31,6 +31,7 @@ with open(args.config) as f:
     DEFAULT_GROUP_1_NAME = config.get('DEFAULT_GROUP_1_NAME') or "group1"
     DEFAULT_GROUP_2_NAME = config.get('DEFAULT_GROUP_2_NAME') or "group2"
     DEFAULT_MONITORED_NEURONS_CSV = Path(config['DEFAULT_MONITORED_NEURONS_CSV'])
+    DEFAULT_MONITORED_NEURONS_NAME = config.get('DEFAULT_MONITORED_NEURONS_NAME')
 
 os.makedirs(DEFAULT_RES_DIR, exist_ok=True)
 with open(DEFAULT_RES_DIR / 'config.json', 'w') as f:
@@ -72,9 +73,6 @@ class AnalysisConfig:
         self.group_2_neu_ids = None
         self.df_rate = None
         self.df_std = None
-
-
-
 
     def get_ids(self) -> tuple[list[int], Optional[list[int]]]:
         """
@@ -189,24 +187,39 @@ class AnalysisConfig:
         hz2 = int(matches[1]) if len(matches) > 1 else float("inf")
         return hz1, hz2
 
+    @staticmethod
+    def _update_fly_id_to_name(mapping:  Dict[int, str], neurons: Iterable[int], name: str,) ->  Dict[int, str]:
+        for i, nid in enumerate(neurons, start=1):
+            mapping[nid] = f"{name}_{i}"
+        return mapping
+
     def summarize_rates(self):
         parquet_files = self.get_parquet_files()
-        # TODO: Add a good naming method
-        # flyid2name = build_flyid2name(sugar_ids)
+
+        flyid2name = build_flyid2name()
         df_spike = utl.load_exps([str(p) for p in parquet_files])
 
         df_rate, df_std = utl.get_rate(
             df_spike,
             t_run=default_params["t_run"],
             n_run=default_params["n_run"],
-            # TODO: Add a good naming method
-            # flyid2name = flyid2name,
+            flyid2name = flyid2name,
         )
         # df_rate.sort_values(df_spike)
         sorted_columns = sorted(df_rate.columns, key=self._sort_by_hz_key)
 
         df_rate = df_rate[sorted_columns]
         df_std = df_std[sorted_columns]
+
+        def reorder_columns(df: pd.DataFrame) -> pd.DataFrame:
+            cols = df.columns.tolist()
+            if "name" in cols:
+                cols.remove("name")
+                cols = ["name"] + cols[0:]
+            return df[cols]
+
+        df_rate = reorder_columns(df_rate)
+        df_std = reorder_columns(df_std)
 
         df_rate.to_csv(self.res_dir / "rates.csv")
         df_std.to_csv(self.res_dir / "std_rates.csv")
@@ -219,11 +232,6 @@ class AnalysisConfig:
     def _filter_columns(df: pd.DataFrame, pattern: str) -> list[str]:
         """Return columns whose names match *pattern* (regex)."""
         return [c for c in df.columns if re.search(pattern, c)]
-
-    def _ensure_plot_dir(self) -> Path:
-        plot_dir = self.res_dir / "plots"
-        plot_dir.mkdir(parents=True, exist_ok=True)
-        return plot_dir
 
     def _load_summary_frames(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Return mean and std DataFrames indexed by `root_id`."""
@@ -450,7 +458,8 @@ def main() -> None:
         .group_name(DEFAULT_GROUP_1_NAME)
         .group_hz(DEFAULT_GROUP_1_HZ)
         .mon_csv(DEFAULT_MONITORED_NEURONS_CSV)
-        .lines_per_subplot(5)
+        .mon_name(DEFAULT_MONITORED_NEURONS_NAME)
+        .lines_per_subplot(10)
     ).build()
 
     plotter.line_per_neuron()

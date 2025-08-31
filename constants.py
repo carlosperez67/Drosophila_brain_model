@@ -30,10 +30,38 @@ CELL_LOOKUP_REV = {720575940660219265: "MN9_RIGHT",
                    720575940612153041: "oviDN (9)",
                    720575940610760306:"oviDN (10)",}
 
-def build_flyid2name(sugars: Iterable[int]) -> Dict[int, str]:
-    mapping = {nid: f"sugar_{i+1}" for i, nid in enumerate(sugars)}
-    mapping.update(CELL_LOOKUP_REV)
+
+
+# def build_flyid2name(sugars: Iterable[int]) -> Dict[int, str]:
+#     mapping = {nid: f"sugar_{i+1}" for i, nid in enumerate(sugars)}
+#     mapping.update(CELL_LOOKUP_REV)
+#     return mapping
+
+def read_ids(csv_path: Path) -> list[int]:
+    df = pd.read_csv(csv_path)
+    if "root_id" not in df.columns:
+        raise ValueError(f"'root_id' column not found in {csv_path}")
+    return df["root_id"].astype(int).tolist()
+
+def build_flyid2name() -> Dict[int, str]:
+    oviDNs = read_ids(Path("Data/MonitoredNeurons/oviDN.csv"))
+    oviENs = read_ids(Path("Data/MonitoredNeurons/oviEN.csv"))
+    IR94e = read_ids(Path("Data/ActivatedNeurons/IR94e_all.csv"))
+    oviEN_upstream = read_ids(Path("Data/ActivatedNeurons/oviEN_upstream.csv"))
+
+    mapping = dict()
+    mapping = update_fly_id_to_name(mapping, oviDNs, "oviDN")
+    mapping = update_fly_id_to_name(mapping, oviENs, "oviEN")
+    mapping = update_fly_id_to_name(mapping, IR94e, "IR94e")
+    mapping = update_fly_id_to_name(mapping, oviEN_upstream, "oviEN_upstream")
     return mapping
+
+
+def update_fly_id_to_name(mapping:  Dict[int, str], neurons: Iterable[int], name: str,) ->  Dict[int, str]:
+    for i, nid in enumerate(neurons, start=1):
+        mapping[nid] = f"{name}_{i}"
+    return mapping
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_PATH = PROJECT_ROOT / "Data" / "sweet.csv"
@@ -41,8 +69,6 @@ DATA_PATH = PROJECT_ROOT / "Data" / "sweet.csv"
 def get_sugar_ids():
     return pd.read_csv(DATA_PATH)["root_id"].astype(int).tolist()
 
-def read_ids(csv_path: Path) -> list[int]:
-    df = pd.read_csv(csv_path)
-    if "root_id" not in df.columns:
-        raise ValueError(f"'root_id' column not found in {csv_path}")
-    return df["root_id"].astype(int).tolist()
+
+
+

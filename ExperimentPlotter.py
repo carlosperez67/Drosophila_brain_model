@@ -23,11 +23,13 @@ class ExperimentPlotter:
         group_name: str,
         group_hz: List[int],
         mon_csv: Path,
+        mon_name: str,
         lines_per_subplot: int = 5,
     ):
         self.res_dir = res_dir
         self.neuron_ids = read_ids(mon_csv)
         self.group_name = group_name
+        self.mon_name = mon_name
         self.group_hz = group_hz
         self.meta_csv = mon_csv
         self.lines_per_subplot = max(lines_per_subplot, 1)
@@ -95,11 +97,6 @@ class ExperimentPlotter:
     # public plotting API
     # ──────────────────────────────────────────────────────────────────────
     def line_per_neuron(self) -> Path:
-        """
-        One figure **per monitored neuron**:
-        x-axis = activation frequency (Hz);
-        y-axis = mean spikes / s (± s.d.).
-        """
         cols = self._columns_for_group()
         if not cols:
             raise RuntimeError("No single-group columns detected.")
@@ -111,7 +108,6 @@ class ExperimentPlotter:
             try:
                 y = self.df_mean.loc[rid, cols]
                 err = self.df_std.loc[rid, cols]
-
 
                 fig, ax = plt.subplots(figsize=(6, 4))
                 ax.errorbar(
@@ -171,11 +167,11 @@ class ExperimentPlotter:
                     Warning(f"{rid} not found")
 
             ax.set_title(
-                f"{self.group_name}: neuron responses "
+                f"{self.group_name} Activated: Monitored {self.mon_name} neuron responses "
                 f"({idx_start + 1}-{idx_end} of {n_neu})"
             )
             ax.set_xlabel("Stimulation frequency (Hz)")
-            ax.set_ylabel("Spikes / s")
+            ax.set_ylabel("Activated frequency (Hz)")
             ax.grid(True, alpha=0.3)
             ax.legend(fontsize="small")
             fig.tight_layout()
@@ -205,6 +201,7 @@ class ExperimentPlotterBuilder:
         self._group_name: Optional[str] = None
         self._group_hz: Optional[List[int]] = None
         self._mon_csv: Optional[Path] = None
+        self._mon_name: Optional[str] = None
         self._lines_per_subplot: int = 5
 
     # def neuron_ids(self, ids: List[int]) -> "ExperimentPlotterBuilder":
@@ -213,6 +210,10 @@ class ExperimentPlotterBuilder:
 
     def mon_csv(self, path: Path) -> "ExperimentPlotterBuilder":
         self._mon_csv = path
+        return self
+
+    def mon_name(self, name: str) -> "ExperimentPlotterBuilder":
+        self._mon_name = name
         return self
 
     def group_name(self, name: str) -> "ExperimentPlotterBuilder":
@@ -241,5 +242,6 @@ class ExperimentPlotterBuilder:
             group_name=self._group_name,
             group_hz=self._group_hz,
             mon_csv=self._mon_csv,
+            mon_name=self._mon_name,
             lines_per_subplot=self._lines_per_subplot,
         )

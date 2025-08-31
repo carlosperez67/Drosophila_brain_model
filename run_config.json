@@ -1,10 +1,14 @@
 {
-  "DEFAULT_RES_DIR": "/Volumes/T7/GordonLab/Analysis_2/IR94e_G2",
-  "DEFAULT_GROUP_1_HZ": [200],
-  "DEFAULT_GROUP_2_HZ": null,
-  "DEFAULT_GROUP_1_CSV": "Data/ActivatedNeurons/IR94e_G2.csv",
-  "DEFAULT_GROUP_2_CSV": null,
-  "DEFAULT_GROUP_1_NAME": "IR94e_G2",
-  "DEFAULT_GROUP_2_NAME": null,
-  "DEFAULT_MONITORED_NEURONS_CSV": "./Data/MonitoredNeurons/oviDN_oviEN.csv"
+    "DEFAULT_RES_DIR": "/Volumes/T7/GordonLab/Analysis_DAN_2",
+    "DEFAULT_GROUP_1_HZ": [
+        100,
+        200
+    ],
+    "DEFAULT_GROUP_2_HZ": null,
+    "DEFAULT_GROUP_1_CSV": "Data/ActivatedNeurons/LTPN.csv",
+    "DEFAULT_GROUP_2_CSV": null,
+    "DEFAULT_GROUP_1_NAME": "LTPN",
+    "DEFAULT_GROUP_2_NAME": null,
+    "DEFAULT_MONITORED_NEURONS_CSV": "./Data/MonitoredNeurons/DAN_group2.csv",
+    "DEFAULT_MONITORED_NEURONS_NAME": "DAN_group2"
 }
